@@ -1,0 +1,51 @@
+Low priority: 67130 - just about to request resource
+owner pid: 67130
+Low priority: 67130 - got resource
+High priority: 67131 - just about to request resource
+owner pid: 67130
+High priority: 67132 - just about to request resource
+owner pid: 67130
+Low priority: 67130 - just about to request resource
+owner pid: 67130
+Low priority: 67130 - got resource
+Low priority: 67130 - just about to request resource
+owner pid: 67130
+Low priority: 67130 - got resource
+Low priority: 67130 - released resource
+Low priority: 67130 - released resource
+Low priority: 67130 - released resource
+Low priority: 67130 - finished
+owner pid: 67130
+owner pid: 67130
+owner pid: 67131
+remove process 67130 from ready list
+High priority: 67131 - got resource
+High priority: 67131 - released resource
+High priority: 67131 - just about to request resource
+owner pid: 67132
+owner pid: 67132
+High priority: 67132 - got resource
+High priority: 67132 - released resource
+High priority: 67132 - just about to request resource
+owner pid: 67131
+owner pid: 67131
+High priority: 67131 - got resource
+High priority: 67131 - released resource
+owner pid: 67132
+remove process 67131 from ready list
+High priority: 67132 - got resource
+High priority: 67132 - released resource
+owner pid: None
+remove process 67132 from ready list
+Mid priority: 1
+Mid priority: 2
+Mid priority: 3
+Mid priority: 4
+Mid priority: 5
+Mid priority: 6
+Mid priority: 7
+Mid priority: 8
+Mid priority: 9
+Mid priority: 10
+remove process 67138 from ready list
+finished
