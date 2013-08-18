@@ -105,15 +105,15 @@ class Controller():
 # The dummy scheduler.
 # Every second it selects the next process to run.
 class Scheduler():
-
     def __init__(self):
         self.ready_list = []
-        self.resourceLocked = False
-
-    # Add a process to the run list
+        self.resource_lock = threading.RLock()
+# 
+#     # Add a process to the run list
     def add_process(self, process):
         # pass # replace with your code
-        # print("add process")
+#         print("adding process: " + str(process.priority))
+        self.resource_lock.acquire()
         if self.ready_list:
             # print("not empty list")
             for i in self.ready_list:
@@ -121,11 +121,14 @@ class Scheduler():
                 if process.priority > i.priority:
                     # print("preper to insert")
                     self.ready_list.insert(self.ready_list.index(i), process)
+                    self.resource_lock.release()
                     # print("readylist: " + self.ready_list)
-                    break
+#                     break
+                    return
                 else:
-                    self.ready_list.insert(0, process)
-                    break
+#                     print(" process.priority <= i.priority, skip")
+                    continue
+            self.ready_list.insert(len(self.ready_list), process)
                 
         else:
             # print("empty list")
@@ -133,24 +136,44 @@ class Scheduler():
 
 #         print("length: " + str(len(self.ready_list)))
 
+#         print("ready_list length: " + str(len(self.ready_list)))
+#         for i in scheduler.ready_list: print(i.priority)
+        self.resource_lock.release()
 
     def remove_process(self, process):
+        self.resource_lock.acquire()   
 #         print("remove process")
-        # pass # replace with your code
         self.ready_list.remove(process)
-#         print("length: " + str(len(self.ready_list)))
-
+        self.resource_lock.release()
+#         pass # replace with your code
     # Selects the process with the best priority.
     # If more than one have the same priority these are selected in round-robin fashion.
-    def select_process(self):
+    
+    def select_process(self, current_process):
         # pass # replace with your code
 #         print("select process")
+        self.resource_lock.acquire()
         if self.ready_list:
 #             print("ready_list is not None")
+#             return self.ready_list[0]
+            if current_process == None:
+#                 print("the length of ready_list here should be 1 (or maybe not), cuz current_process == None: " + str(len(self.ready_list)))
+                self.resource_lock.release()
+                return self.ready_list[0]
+            for process in self.ready_list:
+                # TODO:
+                # Round robin
+#                 if self.ready_list.index(process) > self.ready_list.index(current_process) and process.priority == current_process.priority:
+                if self.ready_list.index(process) > 1 and process.priority == current_process.priority:
+                    self.resource_lock.release()
+                    return process
+            self.resource_lock.release() 
             return self.ready_list[0]
         else:
 #             print("None")
+            self.resource_lock.release()
             return None
+#         pass
 
     # Suspends the currently running process by sending it a STOP signal.
     @staticmethod
@@ -169,7 +192,7 @@ class Scheduler():
         current_process = None
         while True:
             # print('length of ready_list:', len(self.ready_list))
-            next_process = self.select_process()
+            next_process = self.select_process(current_process)
             if next_process == None:  # no more processes
                 controller_write.write('terminate\n')
                 sys.exit()
@@ -178,8 +201,6 @@ class Scheduler():
                     self.suspend(current_process)
                 current_process = next_process
                 self.resume(current_process)
-#             for next_process_same_priority in 
-                
             time.sleep(1)
             # need to remove dead processes from the list
             try:
@@ -209,9 +230,11 @@ time.sleep(0.5)  # give low_process a chance to get going
 
 mid_process = SimpleProcess(5, mid_func)
 scheduler.add_process(mid_process)
-
+ 
 high_process = SimpleProcess(10, high_func)
 scheduler.add_process(high_process)
+ 
+
 
 controller.run()
 
