@@ -1,0 +1,2 @@
+os.waitpid(current_process.pid, os.WNOHANG) != (0, 0):
+The waitpid function suspends execution of the current process until a child as specified by the pid argument has exited, or until a signal is delivered whose action is to terminate the current process or to call a signal handling function. If a child as requested by pid has already exited by the time of the call (a so-called "zombie" process), the function returns immediately. Any system resources used by the child are freed.

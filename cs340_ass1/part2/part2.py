@@ -108,7 +108,7 @@ class Scheduler():
 
     def __init__(self):
         self.ready_list = []
-#         self.resourceLocked = False
+        self.resourceLocked = False
 
     # Add a process to the run list
     def add_process(self, process):
@@ -131,13 +131,17 @@ class Scheduler():
             # print("empty list")
             self.ready_list.append(process)
 
+#         print("length: " + str(len(self.ready_list)))
+
+
     def remove_process(self, process):
 #         print("remove process")
-        self.ready_list.remove(process)
         # pass # replace with your code
+        self.ready_list.remove(process)
+#         print("length: " + str(len(self.ready_list)))
+
     # Selects the process with the best priority.
     # If more than one have the same priority these are selected in round-robin fashion.
-    
     def select_process(self):
         # pass # replace with your code
 #         print("select process")
@@ -147,7 +151,6 @@ class Scheduler():
         else:
 #             print("None")
             return None
-#         pass
 
     # Suspends the currently running process by sending it a STOP signal.
     @staticmethod
@@ -175,6 +178,8 @@ class Scheduler():
                     self.suspend(current_process)
                 current_process = next_process
                 self.resume(current_process)
+#             for next_process_same_priority in 
+                
             time.sleep(1)
             # need to remove dead processes from the list
             try:
@@ -195,32 +200,20 @@ scheduler = Scheduler()
 processes = {}
 
 # Priorities range from 1 to 10
-low_process = SimpleProcess(6, low_func)
+low_process = SimpleProcess(1, low_func)
 scheduler.add_process(low_process)
 
 threading.Thread(target=scheduler.run).start()
 
 time.sleep(0.5)  # give low_process a chance to get going
 
-mid_process = SimpleProcess(4, mid_func)
+mid_process = SimpleProcess(5, mid_func)
 scheduler.add_process(mid_process)
 
-high_process = SimpleProcess(5, high_func)
+high_process = SimpleProcess(10, high_func)
 scheduler.add_process(high_process)
-
-high_process = SimpleProcess(4, high_func)
-scheduler.add_process(high_process)
-high_process = SimpleProcess(8, high_func)
-scheduler.add_process(high_process)
-high_process = SimpleProcess(9, high_func)
-scheduler.add_process(high_process)
-high_process = SimpleProcess(1, high_func)
-scheduler.add_process(high_process)
-
 
 controller.run()
 
-# for i in scheduler.ready_list:
-#     print(i.priority)
 print('finished')
 
