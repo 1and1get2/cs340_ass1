@@ -1,0 +1,63 @@
+Questions
+1. Explain where the race condition could occur in part1.py, show and explain the code you
+inserted to stop this happening.
+
+in add_process, remove_process and select_process functions, surround them by a lock
+
+E.g:
+	self.resource_lock = threading.RLock()
+    def remove_process(self, process):
+    
+        self.resource_lock.acquire()
+        self.ready_list.remove(process)
+        self.resource_lock.release() 
+
+
+2. In the Schedulers run method there is the following statement:
+os.waitpid(current_process.pid, os.WNOHANG) != (0, 0)
+What does this code do, and why is it necessary?
+
+that method wait for the child of the process exited, or been terminated. can be used to free some resources
+
+
+3. The Scheduler code is different from a true scheduler in very important ways – how the
+scheduler code is invoked and how the processes are suspended and resumed. Briefly describe
+how these things are done in a real scheduler.
+
+Scheduler can only handle basic functions such as manages processes by priority and resource lock
+
+4. The implementation of the Controller class depends on writing and reading from pipes.
+Describe the purpose of each line in the SimpleProcess run method. Also explain what would
+happen if the os._exit(0) call was not made, and why.
+
+        self.pid = os.fork() # the child is the process
+        
+        if self.pid: # in the parent
+            self.read.close() # close the read end in the pipe in parent
+            processes[self.pid] = self # make the parent process into the processes array at the proper position using pid as index
+            
+        else: # in the child
+            self.write.close() # close the write end in the pipe in child 
+            self.func(self) # 
+            os._exit(0) # 
+            
+    def run(self):
+        self.pid = os.fork()  # the child is the process
+        						# attach the process to current process
+        
+        if self.pid:  # in the parent	
+            self.read.close()		
+            processes[self.pid] = self
+            
+        else:  # in the child
+            self.write.close()
+            self.func(self)
+            os._exit(0)  
+            
+            the resources occupied by the process wouldn't be freed currectly, zombies
+            
+5. Extra for experts. There is at least one other possible race condition in the code (not counting
+the one you fixed in Part 1. Describe what it is, how it could occur and what the consequences
+would be in that case.
+
+

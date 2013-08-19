@@ -1,8 +1,7 @@
 
 import sys, os, signal, time, threading
 
-DEBUG = False
-# DEBUG = True
+
 
 # These functions are to be scheduled and run in separate real processes.
 def low_func(proc):
@@ -41,6 +40,8 @@ def high_func(proc):
 
 
 #===============================================================================
+DEBUG = False
+# DEBUG = True
 class SimpleProcess():
     def __init__(self, priority, function):
         self.pid = None
@@ -58,8 +59,11 @@ class SimpleProcess():
             if DEBUG:
                 print("mark: 77358")
                 print(("increase" if bool else "decrease") + " priority ")
+#             if self.
             if bool:
                 if current_process.priority == scheduler.ready_list[0].priority:
+                    return
+                if not self.origin_priority:
                     return
                 self.origin_priority = current_process.priority
                 current_process.priority = scheduler.ready_list[0].priority
@@ -125,28 +129,57 @@ class Controller():
             pid = int(pid)
             # possible race condition on line below
             with lock:
+                result = "" 
                 requesting_process = processes[pid]
                 if message == 'request':
+                    result += "\nreceived an request request from pid: " + str(pid)
                     if not owner:  # no current owner
+                        result += "\nresource has no current owner, signed to pid: " + str(pid)
                         owner = requesting_process
                         owner.write.write('reply\n')
                     else:  # currently owned
-                        scheduler.remove_process(requesting_process)
-                        queue.append(requesting_process)
-                        
-                    owner.high_priority_temp(processes[pid],True)
+                        if DEBUG:
+                            print("owner.pid == pid? " + str(owner.pid) + " == " + str( pid))
+                        if owner.pid == pid:
+                            #already owned this resource
+                            queue.append(requesting_process)
+                            owner.write.write('reply\n')
+                        else:
+                          # owned by the others
+                            owner.high_priority_temp(processes[pid],True)
+                            scheduler.remove_process(requesting_process)
+                            queue.append(requesting_process)
+
                 elif message == 'release' and owner == requesting_process:
                     # the first in the queue gets it
-                    owner.high_priority_temp(processes[pid],False)
+                    result += "\nreceived an release request, pid: " + str(pid)
+#                     if queue.count(owner) == 1:
+#                         result += "\n decrease the priority back"
+#                         owner.high_priority_temp(processes[pid],False)
                     #TODO
                     if DEBUG: print("the owner priority after release is: " + str(owner.priority))
-#                     owner.priority = 0
                     if len(queue) < 1:
+                        result += "\n no one in queue, clear owner"
                         owner = None
                     else:
-                        owner = queue.pop(0)
-                        scheduler.add_process(owner)
-                        owner.write.write('reply\n')
+                        if queue.count(owner) == 0:
+                            # no more request from this process
+                            result += "\n queue not empty, pop(0), move to ready_list "
+                            owner = queue.pop(0)
+                            scheduler.add_process(owner)
+                            owner.high_priority_temp(processes[pid],False)
+                            owner.write.write('reply\n')
+                        else:
+                            # still another release needed
+                            owner = queue.pop(0)
+                            owner.write.write('reply\n')
+                else:
+                    print("should not happen")
+                if DEBUG:
+                    print("now printing queue(pid): ")
+                    for element in queue:
+                        result += str(element.pid) + " "
+                    print(result)
                 print('owner pid:', owner.pid if owner else None)
 
 #===============================================================================
@@ -281,7 +314,7 @@ class Scheduler():
             if True:
             #with self.resource_lock:
                 next_process = self.select_process(current_process, process_pos_holder if process_pos_holder else None)
-                if DEBUG: print("next_process: "  + (str(next_process.priority)) if next_process else "None next process") 
+                if DEBUG: print("next_process: pid: "  + str(next_process.pid) + " priority: "+ (str(next_process.priority)) if next_process else "None next process") 
 #                 if next_process: print("next_process: " + str(next_process.priority)) 
 #                 else: print("next_process: None")
                 if next_process == None:  # no more processes

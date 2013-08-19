@@ -1,35 +1,29 @@
+
 import sys, os, signal, time, threading
 
 DEBUG = False
 # DEBUG = True
 
-def request_resource(proc, name, pid):
-    print(name, 'priority:', pid, '- just about to request resource')
+# These functions are to be scheduled and run in separate real processes.
+def low_func(proc):
+    pid = os.getpid()  # who am I?
+    print('Low priority:', pid, '- just about to request resource')
     controller_write.write('{0}:request\n'.format(pid))
     response = proc.read.readline()
-    print(name, 'priority:', pid, '- got resource')
-    
-def release_resource(name, pid):
-    controller_write.write('{0}:release\n'.format(pid))
-    print(name, 'priority:', pid, '- released resource')
-    
-# These functions are to be scheduled and run in separate real processes.
-
-def low_func(proc):
-    pid = os.getpid() # who am I?
-    request_resource(proc, 'Low', pid)
-    
+    print('Low priority:', pid, '- got resource')
+                           
     sum = 0
     for i in range(100000000):
         sum += i
 
-    request_resource(proc, 'Low', pid)
-    request_resource(proc, 'Low', pid)
+    controller_write.write('{0}:release\n'.format(pid))
+    print('Low priority:', pid, '- released resource')
+        
+    for i in range(100000000):
+        sum += i
 
-    release_resource('Low', pid)
-    release_resource('Low', pid)
-    release_resource('Low', pid)
     print('Low priority:', pid, '- finished')
+
 
 def mid_func(proc):
     for i in range(1, 11):
@@ -37,23 +31,13 @@ def mid_func(proc):
         time.sleep(0.5)
 
 def high_func(proc):
-    pid = os.getpid() # who am I?
-    request_resource(proc, 'High', pid)
-    
-    sum = 0
-    for i in range(100000000):
-        sum += i
-
-    release_resource('High', pid)
-    
-    request_resource(proc, 'High', pid)
-    
-    sum = 0
-    for i in range(100000000):
-        sum += i
-
-    release_resource('High', pid)
-
+    pid = os.getpid()  # who am I?
+    print('High priority:', pid, '- just about to request resource')
+    controller_write.write('{0}:request\n'.format(pid))
+    response = proc.read.readline()
+    print('High priority:', pid, '- got resource')
+    controller_write.write('{0}:release\n'.format(pid))
+    print('High priority:', pid, '- released resource')
 
 
 #===============================================================================
@@ -74,11 +58,8 @@ class SimpleProcess():
             if DEBUG:
                 print("mark: 77358")
                 print(("increase" if bool else "decrease") + " priority ")
-#             if self.
             if bool:
                 if current_process.priority == scheduler.ready_list[0].priority:
-                    return
-                if not self.origin_priority:
                     return
                 self.origin_priority = current_process.priority
                 current_process.priority = scheduler.ready_list[0].priority
@@ -144,56 +125,28 @@ class Controller():
             pid = int(pid)
             # possible race condition on line below
             with lock:
-                result = "" 
                 requesting_process = processes[pid]
                 if message == 'request':
-                    result += "\nreceived an request request from pid: " + str(pid)
                     if not owner:  # no current owner
-                        result += "\nresource has no current owner, signed to pid: " + str(pid)
                         owner = requesting_process
                         owner.write.write('reply\n')
                     else:  # currently owned
-                        print("owner.pid == pid? " + str(owner.pid) + " == " + str( pid))
-                        if owner.pid == pid:
-                            #already owned this resource
-                            queue.append(requesting_process)
-                            owner.write.write('reply\n')
-                        else:
-                          # owned by the others
-                            owner.high_priority_temp(owner,True)
-                            scheduler.remove_process(requesting_process)
-                            queue.append(requesting_process)
-
+                        scheduler.remove_process(requesting_process)
+                        queue.append(requesting_process)
+                        
+                    owner.high_priority_temp(processes[pid],True)
                 elif message == 'release' and owner == requesting_process:
                     # the first in the queue gets it
-                    result += "\nreceived an release request, pid: " + str(pid)
-#                     if queue.count(owner) == 1:
-#                         result += "\n decrease the priority back"
-#                         owner.high_priority_temp(processes[pid],False)
+                    owner.high_priority_temp(processes[pid],False)
                     #TODO
                     if DEBUG: print("the owner priority after release is: " + str(owner.priority))
+#                     owner.priority = 0
                     if len(queue) < 1:
-                        result += "\n no one in queue, clear owner"
                         owner = None
                     else:
-                        if queue.count(owner) == 0:
-                            # no more request from this process
-                            result += "\n queue not empty, pop(0), move to ready_list "
-                            owner = queue.pop(0)
-                            scheduler.add_process(owner)
-                            owner.high_priority_temp(processes[pid],False)
-                            owner.write.write('reply\n')
-                        else:
-                            # still another release needed
-                            owner = queue.pop(0)
-                            owner.write.write('reply\n')
-                else:
-                    print("should not happen")
-                if DEBUG:
-                    print("now printing queue(pid): ")
-                    for element in queue:
-                        result += str(element.pid) + " "
-                    print(result)
+                        owner = queue.pop(0)
+                        scheduler.add_process(owner)
+                        owner.write.write('reply\n')
                 print('owner pid:', owner.pid if owner else None)
 
 #===============================================================================
@@ -306,6 +259,19 @@ class Scheduler():
                 if DEBUG: print(result)
                 return None
 
+    def select_process2(self, cp, process_pos_holder):
+        self.resource_lock.acquire()
+        sorted(self.ready_list, key = lambda SimpleProcess: SimpleProcess.priority, reverse=True)
+        
+
+        if len(self.ready_list) >= 1:
+            highestPriority = self.ready_list[0]
+            for i in self.ready_list:
+                if i.priority > highestPriority.priority:
+                    highestPriority = i
+
+            self.resource_lock.release()
+            return highestPriority
     # Suspends the currently running process by sending it a STOP signal.
     @staticmethod
     def suspend(process):
@@ -328,7 +294,7 @@ class Scheduler():
             if True:
             #with self.resource_lock:
                 next_process = self.select_process(current_process, process_pos_holder if process_pos_holder else None)
-                if DEBUG: print("next_process: pid: "  + str(next_process.pid) + " priority: "+ (str(next_process.priority)) if next_process else "None next process") 
+                if DEBUG: print("next_process: "  + (str(next_process.priority)) if next_process else "None next process") 
 #                 if next_process: print("next_process: " + str(next_process.priority)) 
 #                 else: print("next_process: None")
                 if next_process == None:  # no more processes
@@ -355,29 +321,41 @@ class Scheduler():
         
 #===============================================================================
 
-
 controller = Controller()
 scheduler = Scheduler()
 processes = {}
 
+# Priorities range from 1 to 10
 low_process = SimpleProcess(1, low_func)
 scheduler.add_process(low_process)
 
 threading.Thread(target=scheduler.run).start()
 
-time.sleep(0.5) # give low_process a chance to get going
+time.sleep(0.5)  # give low_process a chance to get going
 
 mid_process = SimpleProcess(5, mid_func)
 scheduler.add_process(mid_process)
+mid_process1 = SimpleProcess(5, mid_func)
+scheduler.add_process(mid_process1)
 
-high_process_1 = SimpleProcess(10, high_func)
-high_process_2 = SimpleProcess(10, high_func)
-
-scheduler.add_process(high_process_1)
-scheduler.add_process(high_process_2)
+high_process = SimpleProcess(10, high_func)
+scheduler.add_process(high_process)
+ 
+# high_process = SimpleProcess(5, high_func)
+# scheduler.add_process(high_process)
+# high_process = SimpleProcess(2, high_func)
+# scheduler.add_process(high_process)
+# high_process = SimpleProcess(2, high_func)
+# scheduler.add_process(high_process)
+# high_process = SimpleProcess(7, high_func)
+# scheduler.add_process(high_process)
+# high_process = SimpleProcess(9, high_func)
+# scheduler.add_process(high_process)
 
 controller.run()
+if DEBUG: 
+    for e in scheduler.ready_list:
+        print(str(e.priority))
 
-controller.run()
 print('finished')
 
