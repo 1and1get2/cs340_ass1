@@ -39,7 +39,7 @@ def high_func(proc):
     controller_write.write('{0}:release\n'.format(pid))
     print('High priority:', pid, '- released resource')
 
-    
+
 #===============================================================================
 class SimpleProcess():
     def __init__(self, priority, function):
@@ -47,45 +47,46 @@ class SimpleProcess():
         self.priority = priority
         self.func = function
         self.origin_priority = False
+        self.lock = threading.RLock()
         # Set up the pipe which will later be used to send replies to the process
         # from the controller.
         r, w = os.pipe()
         self.read = os.fdopen(r)
         self.write = os.fdopen(w, mode='w', buffering=1)
     def high_priority_temp( self, current_process, bool):
-        
-        if DEBUG:
-            print("mark: 77358")
-            print(("increase" if bool else "decrease") + " priority ")
-        if bool:
-            if current_process.priority == scheduler.ready_list[0].priority:
-                return
-            self.origin_priority = current_process.priority
-            current_process.priority = scheduler.ready_list[0].priority
-        else:
-            current_process.priority = self.origin_priority
-            self.origin_priority = False
-        # resort
-        if DEBUG:
-            print("before resort in high_priority_temp: ")
-            Scheduler.print_list(self,scheduler.ready_list)
-            # starting sorting:
-        scheduler.ready_list.remove(current_process)
-        scheduler.ready_list.insert(len(scheduler.ready_list), current_process)
-        for element in scheduler.ready_list:
-            if element.priority < current_process.priority:
-                scheduler.ready_list.remove(current_process)
-                scheduler.ready_list.insert(scheduler.ready_list.index(element), current_process)
-                break
-        if DEBUG:
-            print("after resort in high_priority_temp: ")
-            Scheduler.print_list(self, scheduler.ready_list)
-        if DEBUG:
-            print("check if the list still sorted after priority change: " + str(scheduler.check_list_sorted(scheduler.ready_list)))
-            print("items that currently in ready_list: ")
-            if scheduler.ready_list is not None: 
-                for i in scheduler.ready_list:print(" pid: " + str(i.pid) + " priority: " + str(i.priority) + " is_temp_privilage: " + str(i.origin_priority))
-            else: print("")
+        with self.lock:
+            if DEBUG:
+                print("mark: 77358")
+                print(("increase" if bool else "decrease") + " priority ")
+            if bool:
+                if current_process.priority == scheduler.ready_list[0].priority:
+                    return
+                self.origin_priority = current_process.priority
+                current_process.priority = scheduler.ready_list[0].priority
+            else:
+                current_process.priority = self.origin_priority
+                self.origin_priority = False
+            # resort
+            if DEBUG:
+                print("before resort in high_priority_temp: ")
+                Scheduler.print_list(self,scheduler.ready_list)
+                # starting sorting:
+            scheduler.ready_list.remove(current_process)
+            scheduler.ready_list.insert(len(scheduler.ready_list), current_process)
+            for element in scheduler.ready_list:
+                if element.priority < current_process.priority:
+                    scheduler.ready_list.remove(current_process)
+                    scheduler.ready_list.insert(scheduler.ready_list.index(element), current_process)
+                    break
+            if DEBUG:
+                print("after resort in high_priority_temp: ")
+                Scheduler.print_list(self, scheduler.ready_list)
+            if DEBUG:
+                print("check if the list still sorted after priority change: " + str(scheduler.check_list_sorted(scheduler.ready_list)))
+                print("items that currently in ready_list: ")
+                if scheduler.ready_list is not None: 
+                    for i in scheduler.ready_list:print(" pid: " + str(i.pid) + " priority: " + str(i.priority) + " is_temp_privilage: " + str(i.origin_priority))
+                else: print("")
             
 
     # Creates the new process for this to run in when 'run' is first called.

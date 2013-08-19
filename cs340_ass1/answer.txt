@@ -1,3 +1,26 @@
+Questions
+1. Explain where the race condition could occur in part1.py, show and explain the code you
+inserted to stop this happening.
+
+
+
+2. In the Schedulers run method there is the following statement:
+os.waitpid(current_process.pid, os.WNOHANG) != (0, 0)
+What does this code do, and why is it necessary?
+3. The Scheduler code is different from a true scheduler in very important ways – how the
+scheduler code is invoked and how the processes are suspended and resumed. Briefly describe
+how these things are done in a real scheduler.
+4. The implementation of the Controller class depends on writing and reading from pipes.
+Describe the purpose of each line in the SimpleProcess run method. Also explain what would
+happen if the os._exit(0) call was not made, and why.
+5. Extra for experts. There is at least one other possible race condition in the code (not counting
+the one you fixed in Part 1. Describe what it is, how it could occur and what the consequences
+would be in that case.
+
+
+
+
+
 os.waitpid(current_process.pid, os.WNOHANG) != (0, 0):
 The waitpid function suspends execution of the current process until a child as specified by the pid argument has exited, or until a signal is delivered whose action is to terminate the current process or to call a signal handling function. If a child as requested by pid has already exited by the time of the call (a so-called "zombie" process), the function returns immediately. Any system resources used by the child are freed.
 
