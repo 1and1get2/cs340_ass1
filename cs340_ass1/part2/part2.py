@@ -1,7 +1,8 @@
 
 import sys, os, signal, time, threading
-from multiprocessing.dummy import current_process
 
+DEBUG = False
+# DEBUG = True
 
 # These functions are to be scheduled and run in separate real processes.
 def low_func(proc):
@@ -45,11 +46,47 @@ class SimpleProcess():
         self.pid = None
         self.priority = priority
         self.func = function
+        self.origin_priority = False
         # Set up the pipe which will later be used to send replies to the process
         # from the controller.
         r, w = os.pipe()
         self.read = os.fdopen(r)
         self.write = os.fdopen(w, mode='w', buffering=1)
+    def high_priority_temp( self, current_process, bool):
+        
+        if DEBUG:
+            print("mark: 77358")
+            print(("increase" if bool else "decrease") + " priority ")
+        if bool:
+            if current_process.priority == scheduler.ready_list[0].priority:
+                return
+            self.origin_priority = current_process.priority
+            current_process.priority = scheduler.ready_list[0].priority
+        else:
+            current_process.priority = self.origin_priority
+            self.origin_priority = False
+        # resort
+        if DEBUG:
+            print("before resort in high_priority_temp: ")
+            Scheduler.print_list(self,scheduler.ready_list)
+            # starting sorting:
+        scheduler.ready_list.remove(current_process)
+        scheduler.ready_list.insert(len(scheduler.ready_list), current_process)
+        for element in scheduler.ready_list:
+            if element.priority < current_process.priority:
+                scheduler.ready_list.remove(current_process)
+                scheduler.ready_list.insert(scheduler.ready_list.index(element), current_process)
+                break
+        if DEBUG:
+            print("after resort in high_priority_temp: ")
+            Scheduler.print_list(self, scheduler.ready_list)
+        if DEBUG:
+            print("check if the list still sorted after priority change: " + str(scheduler.check_list_sorted(scheduler.ready_list)))
+            print("items that currently in ready_list: ")
+            if scheduler.ready_list is not None: 
+                for i in scheduler.ready_list:print(" pid: " + str(i.pid) + " priority: " + str(i.priority) + " is_temp_privilage: " + str(i.origin_priority))
+            else: print("")
+            
 
     # Creates the new process for this to run in when 'run' is first called.
     def run(self):
@@ -95,8 +132,14 @@ class Controller():
                     else:  # currently owned
                         scheduler.remove_process(requesting_process)
                         queue.append(requesting_process)
+                        
+                    owner.high_priority_temp(processes[pid],True)
                 elif message == 'release' and owner == requesting_process:
                     # the first in the queue gets it
+                    owner.high_priority_temp(processes[pid],False)
+                    #TODO
+                    if DEBUG: print("the owner priority after release is: " + str(owner.priority))
+#                     owner.priority = 0
                     if len(queue) < 1:
                         owner = None
                     else:
@@ -113,19 +156,22 @@ class Scheduler():
         self.ready_list = []
         self.resource_lock = threading.RLock()
         origin_priority = False
-    def high_priority_temp( self, current_process, high_process):
-        if high_process:
-            origin_priority = current_process.priority
-            current_process.priority = high_process.priority
-        else:
-            current_process.priority = origin_priority
-            origin_priority = False
+        
+#     def high_priority_temp( self, current_process, bool):
+#         if bool:
+#             origin_priority = current_process.priority
+#             current_process.priority = scheduler.ready_list[0].priority
+#         else:
+#             current_process.priority = origin_priority
+#             origin_priority = False
 
 # 
 #     # Add a process to the run list
     def add_process(self, process):
         # pass # replace with your code
-#         print("adding process: " + str(process.priority))
+        if DEBUG: 
+            print("adding process: " + str(process.priority))
+            for e in scheduler.ready_list:print(str(e.priority))
         self.resource_lock.acquire()
         if self.ready_list:
             # print("not empty list")
@@ -146,11 +192,6 @@ class Scheduler():
         else:
             # print("empty list")
             self.ready_list.append(process)
-
-#         print("length: " + str(len(self.ready_list)))
-
-#         print("ready_list length: " + str(len(self.ready_list)))
-#         
         self.resource_lock.release()
 
     def remove_process(self, process):
@@ -160,83 +201,62 @@ class Scheduler():
 #         pass # replace with your code
     # Selects the process with the best priority.
     # If more than one have the same priority these are selected in round-robin fashion.
-    # TODO:
-    def select_process(self, cp):
-        if self.ready_list:
-#             print("ready_list is not None")
-            return self.ready_list[0]
-        else:
-#             print("None")
-            return None
-    def select_process1(self, cp):
-        if self.ready_list:
-            self.resource_lock.acquire()
-            
-#             print("in select processes: ")
-#             for i in processes: print("processes [{0}]".format(i))
-#             for j in scheduler.ready_list: print("ready_list: pid: " + str(j) + " priority: " + str(j.priority))
-    #         scheduler.ready_list.index()
-#             if cp: print("cp.priority: " + str(cp.priority) + "  cp: " + str(cp) + " index: " + str(scheduler.ready_list.index(cp)))
-            if (cp is None):
-                # current_process == None
-#                 print("cp is None ")
-                self.resource_lock.release()
-                return scheduler.ready_list[0]
-            else:
-    #             print("current_process prioirty: " + str(current_process.priority))
-#                 print("cp is not None ")
-                self.resource_lock.release()
-                return scheduler.ready_list[0]
-        else:
-            return None
 
-    def select_process3(self, current_process_position):
-        # pass # replace with your code
-#         print("select process")
-#         for i in scheduler.ready_list: print(i.priority)
-       
-        self.resource_lock.acquire()
-        
-        if scheduler.ready_list:
-#             current_process_position = self.ready_list.index(current_process)
-            for counter in range(1, len(scheduler.ready_list)):
-#                 print("len(self.ready_list): " + str((current_process_position + counter) % len(self.ready_list)) + "  counter: " + str(counter))
-                if self.ready_list[(current_process_position + counter) % len(self.ready_list)].priority == self.ready_list[0].priority:
-                    self.resource_lock.release()
-#                     print("current_process: " + str(current_process.priority))
-                return self.ready_list[(current_process_position + counter) % len(self.ready_list)]
-             
-#              for counter in range(len(self.ready_list)):
-                  
-            self.resource_lock.release() 
-            return self.ready_list[0]
-        else:
-#             print("None")
-            self.resource_lock.release()
-            return None
-#         pass
+    def check_list_sorted(self, list):
+        for i in range(0, len(list) - 2):
+            if list[i].priority < list[i+1].priority:
+                return False
+        return True
+    def print_list(self, list):
+        print("items that currently in the list: ")
+        if list is not None: 
+            for i in list:
+                print(" pid: " + str(i.pid) + " priority: " + str(i.priority) + " is_temp_privilage: " + str(i.origin_priority))
+        else: print(" the list is Empty")
+    def select_process(self, cp, process_pos_holder):
+        """sorted_list = sorted([[1,1.0345],[3,4.89],[2,5.098],[2,5.97]], key=lambda x: x[1])"""
+        if DEBUG: 
+            print("selecting process: ")
+            print(" sorted: " + str(self.check_list_sorted(scheduler.ready_list)))
+            print(" items that currently in ready_list: ")
+            if scheduler.ready_list is not None: 
+                for i in scheduler.ready_list:print(" pid: " + str(i.pid) + " priority: " + str(i.priority) + " is_temp_privilage: " + str(i.origin_priority))
+            else: print("")
 
-    def select_process4(self, current_process):
-        self.resource_lock.acquire()
-        if len(self.ready_list) >= 1:
-            if self.pos == 0:
-                self.pos = self.pos + 1
-                self.resource_lock.release()
-                return self.ready_list[0]
-            else:
-                if self.pos < len(self.ready_list) - 1:
-                    if self.ready_list[self.pos-1].priority == self.ready_list[self.pos].priority:
-                        self.pos = self.pos + 1
-                        self.lock.release()
-                        return self.ready_list[self.pos]
-                    else:
-                        self.pos = 1
-                        self.resource_lock.release()
-                        return self.ready_list[0]
+        #TODO:
+        with self.resource_lock:
+            result = "result start:  ======================"
+            if self.ready_list:
+                result += "\n list not empty"
+                if cp in scheduler.ready_list:
+                    result += "\n cp in scheduler.ready_list"
+                    process_pos_holder = scheduler.ready_list.index(cp) + 1
                 else:
-                    self.resource_lock.release()
-        
-                    return self.ready_list[0]
+                    result += "\n cp is not in scheduler.ready_list"
+                    if process_pos_holder:
+                        result += "\n process_pos_holder is not None, process_pos_holder remains what it was"
+                        
+                    else:
+                        result += "\n process_pos_holder is None"
+                        if DEBUG: print(result)
+                        return scheduler.ready_list[0]
+                for i in range(len(scheduler.ready_list)):
+                    result += "\n comparing priority: " + " "
+                    if scheduler.ready_list[(process_pos_holder + i) % len(scheduler.ready_list)].priority == scheduler.ready_list[0].priority:
+                        result += "\n found next pocess: " + str(scheduler.ready_list[(process_pos_holder + i) % len(scheduler.ready_list)])
+                        if DEBUG: print(result + "========  result end")
+                        return scheduler.ready_list[(process_pos_holder + i) % len(scheduler.ready_list)]
+                #TODO: ERROR
+                result += "\n error happened, cant find any same priority process, details:"
+                if scheduler.ready_list is not None: 
+                    for i in scheduler.ready_list:result += ("\n pid: " + str(i.pid) + " priority: " + str(i.priority) + " is_temp_privilage: " + str(i.origin_priority))
+                else: result += ("\nlist empty")
+                if DEBUG: print(result + "\n======================  result end")
+                return scheduler.ready_list[0]
+            else:
+                result += "\n list empty, return None\n======================  result end"
+                if DEBUG: print(result)
+                return None
 
     # Suspends the currently running process by sending it a STOP signal.
     @staticmethod
@@ -253,27 +273,16 @@ class Scheduler():
     
     def run(self):
         #TODO: added a lock here
-        
         current_process = None
+        process_pos_holder = False
         while True:
-            # print('length of ready_list:', len(self.ready_list))
-#             next_process = self.select_process(self.ready_list.index(current_process) if not current_process else -1)
-#             if current_process != None and current_process in self.ready_list:
-#                 next_process = current_process
-#             elif current_process != None:
-# #                 print("current_process in the list: " + str(current_process.priority))
-# #                 for process in scheduler.ready_list: print(process.priority)
-#                 next_process = self.select_process(self.ready_list.index(current_process))
-#             else:
-# #                 print("current_process not in the list")
-#                 next_process = self.select_process(-1)
-# #             if next_process: print("next_process: " + str(next_process.priority)) 
-# #             else: print("next_process: None")
-
             #TODO: do we need a lock here or not
-            #if True:
-            with self.resource_lock:
-                next_process = self.select_process(current_process)
+            if True:
+            #with self.resource_lock:
+                next_process = self.select_process(current_process, process_pos_holder if process_pos_holder else None)
+                if DEBUG: print("next_process: "  + (str(next_process.priority)) if next_process else "None next process") 
+#                 if next_process: print("next_process: " + str(next_process.priority)) 
+#                 else: print("next_process: None")
                 if next_process == None:  # no more processes
                     controller_write.write('terminate\n')
                     sys.exit()
@@ -292,6 +301,7 @@ class Scheduler():
                     current_process_finished = True
                 if current_process_finished:
                     print('remove process', current_process.pid, 'from ready list')
+                    process_pos_holder = scheduler.ready_list.index(current_process)
                     self.remove_process(current_process)
                     current_process = None
         
@@ -311,13 +321,27 @@ time.sleep(0.5)  # give low_process a chance to get going
 
 mid_process = SimpleProcess(5, mid_func)
 scheduler.add_process(mid_process)
+mid_process1 = SimpleProcess(5, mid_func)
+scheduler.add_process(mid_process1)
 
 high_process = SimpleProcess(10, high_func)
 scheduler.add_process(high_process)
  
-
+# high_process = SimpleProcess(5, high_func)
+# scheduler.add_process(high_process)
+# high_process = SimpleProcess(2, high_func)
+# scheduler.add_process(high_process)
+# high_process = SimpleProcess(2, high_func)
+# scheduler.add_process(high_process)
+# high_process = SimpleProcess(7, high_func)
+# scheduler.add_process(high_process)
+# high_process = SimpleProcess(9, high_func)
+# scheduler.add_process(high_process)
 
 controller.run()
+if DEBUG: 
+    for e in scheduler.ready_list:
+        print(str(e.priority))
 
 print('finished')
 

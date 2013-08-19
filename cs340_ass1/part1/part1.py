@@ -110,6 +110,7 @@ class Scheduler():
         self.resource_lock = threading.RLock()
 # 
 #     # Add a process to the run list
+
     def add_process(self, process):
         # pass # replace with your code
 #         print("adding process: " + str(process.priority))
@@ -133,12 +134,8 @@ class Scheduler():
         else:
             # print("empty list")
             self.ready_list.append(process)
-
-#         print("length: " + str(len(self.ready_list)))
-
-#         print("ready_list length: " + str(len(self.ready_list)))
-#         for i in scheduler.ready_list: print(i.priority)
         self.resource_lock.release()
+
 
     def remove_process(self, process):
         self.resource_lock.acquire()   
